@@ -1,0 +1,104 @@
+#  IMAGE                            ID             DISK USAGE   CONTENT SIZE   EXTRA
+#    busybox:1.36                     73aaf090f3d8       6.76MB         2.21MB
+#    hello-world:latest               cf1b20a0c89a       25.9kB         9.49kB    U
+#    mysql:8.0                        7dcddc01f13b        1.1GB          249MB
+#    splitwise-api-gateway:1.0        64304a953dad        589MB          178MB    U
+#    splitwise-auth-service:1.0       9dc31766a9db        616MB          191MB    U
+#    splitwise-disocvery-server:1.0   d0d5b49ec8b8        571MB          170MB    U
+#    splitwise-expense-service:1.0    b4ce9ccefe58        554MB          161MB    U
+#    splitwise-group-service:1.0      81ba06645fca        611MB          188MB    U
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: splitwise_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+  discovery-server:
+    image: splitwise-disocvery-server:1.0
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: ["CMD","curl","-f","http://localhost:8761/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+  auth-service:
+    image: splitwise-auth-service:1.0
+    environment:
+      EUREKA_URL: http://discovery-server:8761/eureka/
+      DB_URL: jdbc:mysql://mysql:3306/splitwise_auth
+      DB_USERNAME: splitwise_app
+      DB_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "8082:8082"
+    volumes:
+      - /home/nagaraj/Projects/Splitwise-microservices/auth-service/auth-service/keys:/app/keys:ro
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+
+  group-service:
+    build:
+      context: ./group-service/group-service
+      dockerfile: Dockerfile
+    image: splitwise-group-service:1.0
+    environment:
+      EUREKA_URL: http://discovery-server:8761/eureka/
+      DB_URL: jdbc:mysql://mysql:3306/splitwise_group
+      DB_USERNAME: splitwise_app
+      DB_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "8081:8081"
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+  expense-service:
+    build:
+      context: ./expense-service/expense-service
+      dockerfile: Dockerfile
+    image: splitwise-expense-service:1.0
+    environment:
+      EUREKA_URL: http://discovery-server:8761/eureka/
+      DB_URL: jdbc:mysql://mysql:3306/splitwise_expense
+      DB_USERNAME: splitwise_app
+      DB_PASSWORD: ${DB_PASSWORD}
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+    ports:
+      - "8084:8084"
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+  api-gateway:
+    image: splitwise-api-gateway:1.0
+    environment:
+      EUREKA_URL: http://discovery-server:8761/eureka/
+    ports:
+      - "8083:8083"
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+networks:
+  default:
+    external: true
+    name: splitwise-network
+volumes:
+  mysql_data:

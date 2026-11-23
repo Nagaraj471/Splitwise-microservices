@@ -4,7 +4,6 @@ import GROUP_SERVICE.group_service.dto.*;
 import GROUP_SERVICE.group_service.services.GroupService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
-import lombok.Getter;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -12,7 +11,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @AllArgsConstructor
@@ -96,5 +94,17 @@ public class GroupController {
             @PathVariable Long groupId,
             Pageable pageable){
         return ResponseEntity.ok(groupService.getGroupMembers(requesterId, groupId,pageable));
+    }
+
+
+    @PostMapping("/internal/{groupId}/members/validate")
+    public ResponseEntity<ValidateMemberResponse> validateMembers(
+            @PathVariable Long groupId,
+            @Valid @RequestBody ValidateMemberRequest request
+    ) {
+        ValidateMemberResponse response =
+                groupService.validateMembers(groupId,request);
+
+        return ResponseEntity.ok(response);
     }
 }

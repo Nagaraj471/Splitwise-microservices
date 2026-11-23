@@ -1,9 +1,6 @@
 package GROUP_SERVICE.group_service.services;
 
-import GROUP_SERVICE.group_service.dto.GroupDetailResponse;
-import GROUP_SERVICE.group_service.dto.GroupRequest;
-import GROUP_SERVICE.group_service.dto.GroupResponse;
-import GROUP_SERVICE.group_service.dto.MemberResponse;
+import GROUP_SERVICE.group_service.dto.*;
 import GROUP_SERVICE.group_service.entities.ExpenseGroup;
 import GROUP_SERVICE.group_service.entities.GroupMember;
 import GROUP_SERVICE.group_service.enums.GroupMemberRole;
@@ -21,6 +18,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import GROUP_SERVICE.group_service.exceptions.AccessDeniedException;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
 import java.util.Optional;
@@ -228,7 +227,29 @@ public class GroupService {
                 ));
 
     }
-    
+
+
+    @Transactional
+    public ValidateMemberResponse validateMembers(
+            Long groupId,
+         ValidateMemberRequest request
+    ){
+        ExpenseGroup group=expenseGroupRepo.findById(groupId)
+                .orElseThrow(()->new ResourceNotFoundException("Group doesnt exist"));
+        if (group.getStatus()==GroupStatus.ARCHIVED){
+            throw new ConflictException("group is archived");
+        }
+        List<Long> existingIds = groupMemberRepo.findAllByGroup_Id(groupId)
+                .stream()
+                .map(GroupMember::getUserId)
+                .toList();
+
+
+        List<Long> validUsers=request.userIds()
+                .stream().filter(userId->existingIds.contains(userId))
+                .distinct().toList();
+        return new ValidateMemberResponse(validUsers);
+    }
     public GroupResponse GroupToGroupResponse(ExpenseGroup group){
                 return new GroupResponse(
                 group.getId(),

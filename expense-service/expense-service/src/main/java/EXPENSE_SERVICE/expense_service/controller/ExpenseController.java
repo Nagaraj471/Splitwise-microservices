@@ -1,24 +1,40 @@
 package EXPENSE_SERVICE.expense_service.controller;
 
-import EXPENSE_SERVICE.expense_service.clients.GroupClient;
-import EXPENSE_SERVICE.expense_service.dtos.GroupResponse;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import EXPENSE_SERVICE.expense_service.dtos.ExpenseRequest;
+import EXPENSE_SERVICE.expense_service.dtos.ExpenseResponse;
+import EXPENSE_SERVICE.expense_service.dtos.ValidateGroupRequest;
+import EXPENSE_SERVICE.expense_service.dtos.ValidateGroupResponse;
+import EXPENSE_SERVICE.expense_service.services.ExpenseService;
+import jakarta.validation.Valid;
+import lombok.AllArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("expenses")
-
+@AllArgsConstructor
 public class ExpenseController {
-    private final GroupClient groupClient;
+    private final ExpenseService expenseService;
 
-    public ExpenseController(GroupClient groupClient) {
-        this.groupClient = groupClient;
+    @PostMapping("/groups/{groupId}/validate-members")
+    public ResponseEntity<ValidateGroupResponse> validateMembers(
+            @PathVariable Long groupId,
+            @RequestBody ValidateGroupRequest request) {
+
+        ValidateGroupResponse response =
+                expenseService.validate(groupId, request.userIds());
+
+        return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/validate-group/{groupId}")
-    public GroupResponse validateGroup(@PathVariable Long groupId){
-        return groupClient.getGroup(groupId);
+    @PostMapping
+    public ResponseEntity<ExpenseResponse> createExpense(
+            @RequestHeader("X-User-Id") Long paidBy,
+            @Valid @RequestBody ExpenseRequest request) {
+        System.out.println("Received payer ID: " + paidBy);
+        ExpenseResponse response = expenseService.createExpense(paidBy, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
+
 }
